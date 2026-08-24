@@ -606,17 +606,17 @@
 
             <div class="p-6 space-y-4">
                 <p class="text-xs text-slate-600 leading-relaxed">
-                    Masukkan **URL Google Apps Script Web App** yang Anda dapatkan dari spreadsheet Anda. Aplikasi ini akan tersinkronisasi secara otomatis membaca & menulis data mutasi ke Google Sheets secara realtime.
+                    URL Google Apps Script Web App sekarang dibaca langsung dari <strong>index.html</strong>. Untuk mengganti koneksi, edit nilai <code>GOOGLE_APPS_SCRIPT_URL</code> pada bagian JavaScript di index.html.
                 </p>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Google Apps Script Web App URL</label>
-                    <input type="url" id="sheetApiUrl" placeholder="https://script.google.com/macros/s/AKfycbwbYT6hgvUZUXaFzEac8qZMiRFtUl7XFanQ93RHjzQ_YQogY4Vdywqfyw3PtNDF04BMBw/exec" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-mono">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Google Apps Script Web App URL <span class="text-slate-400 font-normal">(dari index.html)</span></label>
+                    <input type="url" id="sheetApiUrl" readonly placeholder="Belum diatur di index.html" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none font-mono bg-slate-50 text-slate-600 cursor-not-allowed">
                 </div>
 
                 <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-xs text-emerald-800 space-y-1">
                     <p class="font-semibold"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Catatan Integrasi:</p>
-                    <p>Google Sheet adalah satu-satunya sumber data siswa. URL Web App wajib diisi agar tambah, edit, hapus, status, dan sinkronisasi dapat digunakan.</p>
+                    <p>Google Sheet adalah satu-satunya sumber data siswa. Isi URL deployment <strong>/exec</strong> pada konstanta <code>GOOGLE_APPS_SCRIPT_URL</code> di index.html.</p>
                 </div>
 
                 <div class="pt-4 border-t border-slate-200 flex justify-between items-center">
@@ -627,7 +627,7 @@
                     
                     <div class="flex space-x-2">
                         <button type="button" onclick="closeModal('configModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition">Batal</button>
-                        <button type="button" onclick="saveSheetConfig()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow transition">Simpan & Uji Koneksi</button>
+                        <button type="button" onclick="saveSheetConfig()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow transition"><i class="fa-solid fa-plug-circle-check mr-1"></i>Uji Koneksi</button>
                     </div>
                 </div>
             </div>
@@ -1930,7 +1930,18 @@ function json_(data) {
         let students = [];
         let currentFilterCategory = 'ALL';
         let currentViewSection = 'dashboard';
-        let googleSheetUrl = localStorage.getItem('dapodik_sheet_url') || '';
+
+        /* ============================================================
+           LINK GOOGLE APPS SCRIPT WEB APP
+           GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT /exec ANDA.
+           Contoh:
+           const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
+           ============================================================ */
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwbYT6hgvUZUXaFzEac8qZMiRFtUl7XFanQ93RHjzQ_YQogY4Vdywqfyw3PtNDF04BMBw/exec';
+        let googleSheetUrl = (
+            GOOGLE_APPS_SCRIPT_URL &&
+            !GOOGLE_APPS_SCRIPT_URL.includes('MASUKKAN_LINK_GOOGLE_APPS_SCRIPT_DI_SINI')
+        ) ? GOOGLE_APPS_SCRIPT_URL.trim() : '';
         
         // AKUN LOGIN: sumber utama dapat berasal dari sheet "Akun".
         // Akun bawaan hanya dipakai sebagai fallback ketika Google Sheet belum dikonfigurasi / tidak dapat diakses.
@@ -2038,9 +2049,10 @@ function json_(data) {
             students = [];
             activityNotifications = [];
 
+            const sheetInput = document.getElementById('sheetApiUrl');
+            if (sheetInput) sheetInput.value = googleSheetUrl || '';
+
             if (googleSheetUrl) {
-                const sheetInput = document.getElementById('sheetApiUrl');
-                if (sheetInput) sheetInput.value = googleSheetUrl;
                 updateSyncBadge(false, 'Menunggu Login');
                 await loadAccountsFromGoogleSheets(true);
             } else {
@@ -2257,7 +2269,7 @@ function json_(data) {
         function requireGoogleSheetConnection(showMessage = true) {
             if (googleSheetUrl) return true;
             if (showMessage) {
-                alert('Google Sheet belum terhubung. Data siswa tidak disimpan di browser. Hubungkan URL Web App terlebih dahulu.');
+                alert('Google Sheet belum terhubung. Data siswa tidak disimpan di browser. Atur GOOGLE_APPS_SCRIPT_URL di index.html terlebih dahulu.');
                 if ((ROLE_PERMISSIONS[currentUserRole] || {}).allowConfig) openModal('configModal');
             }
             return false;
@@ -2744,31 +2756,34 @@ function json_(data) {
         async function saveSheetConfig() {
             const perm = ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.STAFF;
             if (!perm.allowConfig) {
-                alert('Akses Ditolak: Hanya Admin yang dapat mengkonfigurasi integrasi Google Sheet.');
+                alert('Akses Ditolak: Hanya Admin yang dapat menguji koneksi Google Sheet.');
                 return;
             }
 
-            const url = document.getElementById('sheetApiUrl').value.trim();
-            googleSheetUrl = url;
+            const sheetInput = document.getElementById('sheetApiUrl');
+            if (sheetInput) sheetInput.value = googleSheetUrl || '';
 
-            if (url) {
-                localStorage.setItem('dapodik_sheet_url', url);
-                updateSyncBadge(false, 'Menghubungkan...');
-                await loadAccountsFromGoogleSheets(true);
-                const ok = await syncDataWithGoogleSheets(true);
-                if (!ok) {
-                    alert('URL tersimpan, tetapi Google Sheet belum dapat diakses. Pastikan deployment Web App benar dan akses disetel ke Anyone.');
-                }
-            } else {
-                localStorage.removeItem('dapodik_sheet_url');
-                students = [];
-                activityNotifications = [];
-                systemAccounts = DEFAULT_SYSTEM_ACCOUNTS.map(a => ({ ...a }));
-                renderTable();
-                updateNotificationBell();
+            if (!googleSheetUrl) {
                 updateSyncBadge(false, 'Belum Terhubung');
+                alert(
+                    'URL Google Apps Script belum diatur.\n\n' +
+                    'Buka index.html lalu cari:\n' +
+                    "const GOOGLE_APPS_SCRIPT_URL = 'MASUKKAN_LINK_GOOGLE_APPS_SCRIPT_DI_SINI';\n\n" +
+                    'Ganti dengan URL deployment yang berakhiran /exec.'
+                );
+                return;
             }
-            closeModal('configModal');
+
+            updateSyncBadge(false, 'Menguji Koneksi...');
+            await loadAccountsFromGoogleSheets(true);
+            const ok = await syncDataWithGoogleSheets(true);
+
+            if (ok) {
+                alert('Koneksi Google Sheet berhasil.');
+                closeModal('configModal');
+            } else {
+                alert('Koneksi gagal. Pastikan URL /exec dan deployment Google Apps Script sudah benar.');
+            }
         }
 
         async function syncDataWithGoogleSheets(silent = false) {
@@ -2777,7 +2792,7 @@ function json_(data) {
                 renderTable();
                 updateSyncBadge(false, 'Belum Terhubung');
                 if (!silent) {
-                    alert('Silakan masukkan URL Web App Google Apps Script terlebih dahulu di Pengaturan.');
+                    alert('URL Google Apps Script belum diatur di index.html.');
                     if ((ROLE_PERMISSIONS[currentUserRole] || {}).allowConfig) openModal('configModal');
                 }
                 return false;
