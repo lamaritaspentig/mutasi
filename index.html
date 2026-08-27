@@ -509,15 +509,15 @@
                         <input type="date" id="tgl_diterima" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-dapodik-500 outline-none">
                     </div>
 
-                    <!-- Kelas / Keluar Kelas -->
+                    <!-- Kelas Diterima / Kelas Keluar -->
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Kelas / Keluar Kelas <span class="text-rose-500">*</span></label>
+                        <label id="lblKelas" class="block text-xs font-semibold text-slate-700 mb-1">Kelas Diterima <span class="text-rose-500">*</span></label>
                         <input
                             type="text"
                             id="kelas"
                             required
                             autocomplete="off"
-                            placeholder="Contoh: VII-1, VIII-5, IX-10"
+                            placeholder="Contoh: Kelas VII .1, Kelas VIII .2, Kelas IX .3"
                             oninput="this.value = this.value.toUpperCase()"
                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-dapodik-500 outline-none uppercase"
                         >
@@ -1198,10 +1198,15 @@
         }
 
         function getDashboardClassLevel(kelas){
-            const v = String(kelas || '').trim().toUpperCase();
-            if (/^VIII(?:-|$|\s)/.test(v) || /^8(?:-|$|\s)/.test(v)) return 'VIII';
-            if (/^VII(?:-|$|\s)/.test(v) || /^7(?:-|$|\s)/.test(v)) return 'VII';
-            if (/^IX(?:-|$|\s)/.test(v) || /^9(?:-|$|\s)/.test(v)) return 'IX';
+            let v = String(kelas || '').trim().toUpperCase();
+
+            // Dukung: "Kelas VII .1", "VII .1", "VII.1", "VII-1", "VII 1", "7.1".
+            v = v.replace(/^KELAS\s+/i, '').trim();
+
+            if (/^VIII(?=$|[\s.\/-])/.test(v) || /^8(?=$|[\s.\/-])/.test(v)) return 'VIII';
+            if (/^VII(?=$|[\s.\/-])/.test(v) || /^7(?=$|[\s.\/-])/.test(v)) return 'VII';
+            if (/^IX(?=$|[\s.\/-])/.test(v) || /^9(?=$|[\s.\/-])/.test(v)) return 'IX';
+
             return '';
         }
 
@@ -1942,13 +1947,7 @@
 
                 // Filter Kelas berdasarkan tingkat (VII / VIII / IX)
                 if (filterKelas) {
-                    const kelasValue = String(s.kelas || '').trim().toUpperCase();
-                    const numericGradeMap = { '7': 'VII', '8': 'VIII', '9': 'IX' };
-                    const numericMatch = kelasValue.match(/^([789])(?:\D|$)/);
-                    const normalizedGrade = numericMatch ? numericGradeMap[numericMatch[1]] :
-                        (kelasValue.startsWith('VIII') ? 'VIII' :
-                         kelasValue.startsWith('VII') ? 'VII' :
-                         kelasValue.startsWith('IX') ? 'IX' : '');
+                    const normalizedGrade = getDashboardClassLevel(s.kelas);
                     if (normalizedGrade !== filterKelas) return false;
                 }
 
@@ -1996,13 +1995,16 @@
             const jenis = document.getElementById('jenis_mutasi').value;
             const lblSekolah = document.getElementById('lblAsalSekolah');
             const lblTgl = document.getElementById('lblTglDiterima');
+            const lblKelas = document.getElementById('lblKelas');
 
             if (jenis === 'MASUK') {
                 lblSekolah.innerHTML = 'Asal Sekolah <span class="text-rose-500">*</span>';
                 lblTgl.innerHTML = 'Tanggal Diterima <span class="text-rose-500">*</span>';
+                if (lblKelas) lblKelas.innerHTML = 'Kelas Diterima <span class="text-rose-500">*</span>';
             } else {
                 lblSekolah.innerHTML = 'Sekolah Tujuan Mutasi <span class="text-rose-500">*</span>';
                 lblTgl.innerHTML = 'Tanggal Mutasi Keluar <span class="text-rose-500">*</span>';
+                if (lblKelas) lblKelas.innerHTML = 'Kelas Keluar <span class="text-rose-500">*</span>';
             }
         }
 
