@@ -1734,16 +1734,14 @@
                 const targetId = String(target.id || '');
                 const targetKey = [
                     String(target.nisn || '').trim().toLowerCase(),
-                    String(target.jenis_mutasi || '').trim().toUpperCase(),
-                    String(target.tgl_diterima || '').split('T')[0]
+                    String(target.jenis_mutasi || '').trim().toUpperCase()
                 ].join('|');
 
                 return students.some(s => {
                     const sameId = targetId && String(s.id || '') === targetId;
                     const rowKey = [
                         String(s.nisn || '').trim().toLowerCase(),
-                        String(s.jenis_mutasi || '').trim().toUpperCase(),
-                        String(s.tgl_diterima || '').split('T')[0]
+                        String(s.jenis_mutasi || '').trim().toUpperCase()
                     ].join('|');
 
                     if (!sameId && rowKey !== targetKey) return false;
@@ -1797,6 +1795,24 @@
                 }
 
                 if (!verified) {
+                    if (action === 'upsertStudent' && payload.student) {
+                        const duplicate = findDuplicateStudentMutation(
+                            payload.student,
+                            payload.student.id
+                        );
+                        if (duplicate) {
+                            const labelJenis = String(payload.student.jenis_mutasi || '').toUpperCase() === 'KELUAR'
+                                ? 'Mutasi Keluar'
+                                : 'Mutasi Masuk';
+                            showToast(
+                                `NISN ${payload.student.nisn} sudah terdaftar sebagai ${labelJenis}.`,
+                                'warning',
+                                'Data ganda'
+                            );
+                            return false;
+                        }
+                    }
+
                     showToast('Perubahan belum terkonfirmasi. Silakan sinkronkan ulang.', 'warning', 'Belum terkonfirmasi');
                     return false;
                 }
@@ -2054,6 +2070,20 @@
             }
         }
 
+
+        function findDuplicateStudentMutation(candidate, ignoreId = '') {
+            const nisn = String(candidate?.nisn || '').trim();
+            const jenis = String(candidate?.jenis_mutasi || '').trim().toUpperCase();
+
+            if (!nisn || !jenis) return null;
+
+            return students.find(s =>
+                String(s.id || '') !== String(ignoreId || '') &&
+                String(s.nisn || '').trim() === nisn &&
+                String(s.jenis_mutasi || '').trim().toUpperCase() === jenis
+            ) || null;
+        }
+
         async function handleFormSubmit(e) {
             e.preventDefault();
             if (!requireGoogleSheetConnection(true)) return;
@@ -2089,6 +2119,17 @@
                 no_hp_ortu: document.getElementById('no_hp_ortu').value.trim(),
                 no_hp_siswa: document.getElementById('no_hp_siswa').value.trim()
             };
+
+            const duplicate = findDuplicateStudentMutation(student, existingId);
+            if (duplicate) {
+                const labelJenis = jenis === 'KELUAR' ? 'Mutasi Keluar' : 'Mutasi Masuk';
+                showToast(
+                    `NISN ${student.nisn} sudah terdaftar sebagai ${labelJenis} atas nama ${duplicate.nama_siswa || 'siswa lain'}.`,
+                    'warning',
+                    'Data ganda'
+                );
+                return;
+            }
 
             const submitBtn = e.submitter;
             const oldHtml = submitBtn ? submitBtn.innerHTML : '';
